@@ -172,6 +172,7 @@ impl<'a> Default for PersistentClient<'a> {
 
 #[cfg(test)]
 mod tests {
+    use mpd_client::commands;
     use crate::*;
 
     #[tokio::test]
