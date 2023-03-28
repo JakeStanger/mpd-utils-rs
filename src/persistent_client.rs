@@ -172,8 +172,8 @@ impl<'a> Default for PersistentClient<'a> {
 
 #[cfg(test)]
 mod tests {
-    use mpd_client::commands;
     use crate::*;
+    use mpd_client::commands;
 
     #[tokio::test]
     async fn test() {
