@@ -68,10 +68,7 @@ impl<'a> MultiHostClient<'a> {
             .collect::<Vec<_>>();
 
         if connected_clients.is_empty() {
-            Ok(match self.last_active {
-                Some(host) => self.clients.iter().find(|client| client.host() == host),
-                None => self.clients.first(),
-            })
+            Ok(None)
         } else {
             let player_states = connected_clients.iter().map(|&client| async move {
                 client.status().await.map(|status| (client, status.state))
@@ -83,12 +80,20 @@ impl<'a> MultiHostClient<'a> {
                 .collect::<std::result::Result<Vec<_>, _>>();
 
             player_states.map(|player_states| {
-                let mut iter = player_states.into_iter();
-
-                iter.find(|(_, state)| state == &PlayState::Playing)
-                    .or_else(|| iter.find(|(_, state)| state == &PlayState::Paused))
-                    .or_else(|| iter.find(|(_, state)| state == &PlayState::Stopped))
-                    .map(|(client, _)| client)
+                player_states
+                    .iter()
+                    .find(|(_, state)| state == &PlayState::Playing)
+                    .or_else(|| {
+                        player_states
+                            .iter()
+                            .find(|(_, state)| state == &PlayState::Paused)
+                    })
+                    .or_else(|| {
+                        player_states
+                            .iter()
+                            .find(|(_, state)| state == &PlayState::Stopped)
+                    })
+                    .map(|(client, _)| *client)
             })
         }
     }
