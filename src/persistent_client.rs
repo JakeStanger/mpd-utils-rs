@@ -9,7 +9,7 @@ use tokio::spawn;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::sleep;
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Debug, Clone)]
 enum State {
@@ -17,10 +17,9 @@ enum State {
     Connected(Arc<Client>),
 }
 
-type ConnectionChannel = (
-    UnboundedSender<Arc<Client>>,
-    Arc<AsyncMutex<UnboundedReceiver<Arc<Client>>>>,
-);
+type AsyncReceiver<T> = Arc<AsyncMutex<UnboundedReceiver<T>>>;
+
+type AsyncChannel<T> = (UnboundedSender<T>, AsyncReceiver<T>);
 
 /// MPD client which automatically attempts to reconnect
 /// if the connection cannot be established or is lost.
@@ -31,11 +30,8 @@ pub struct PersistentClient<'a> {
     host: &'a str,
     retry_interval: Duration,
     state: Arc<Mutex<State>>,
-    channel: (
-        UnboundedSender<ConnectionEvent>,
-        UnboundedReceiver<ConnectionEvent>,
-    ),
-    connection_channel: ConnectionChannel,
+    channel: AsyncChannel<ConnectionEvent>,
+    connection_channel: AsyncChannel<Arc<Client>>,
 }
 
 impl<'a> PersistentClient<'a> {
@@ -47,7 +43,7 @@ impl<'a> PersistentClient<'a> {
             host,
             retry_interval,
             state: Arc::new(Mutex::new(State::Disconnected)),
-            channel,
+            channel: (channel.0, Arc::new(AsyncMutex::new(channel.1))),
             connection_channel: (
                 connection_channel.0,
                 Arc::new(AsyncMutex::new(connection_channel.1)),
@@ -70,6 +66,8 @@ impl<'a> PersistentClient<'a> {
 
                 match connection {
                     Ok(connection) => {
+                        info!("Connected to '{host}'");
+
                         let client = Arc::new(connection.0);
 
                         {
@@ -144,9 +142,9 @@ impl<'a> PersistentClient<'a> {
     }
 
     /// Receives an event from the MPD server.
-    pub async fn recv(&mut self) -> Option<ConnectionEvent> {
-        let rx = &mut self.channel.1;
-        rx.recv().await
+    pub async fn recv(&self) -> Option<ConnectionEvent> {
+        let rx = &self.channel.1;
+        rx.lock().await.recv().await
     }
 
     /// Runs the `status` command on the MPD server.

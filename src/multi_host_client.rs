@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use crate::persistent_client::PersistentClient;
-use mpd_client::client::CommandError;
+use mpd_client::client::{CommandError, ConnectionEvent};
 use mpd_client::responses::{PlayState, SongInQueue, Status};
 use mpd_client::Client;
 use std::future::Future;
@@ -9,7 +9,6 @@ use std::time::Duration;
 
 pub struct MultiHostClient<'a> {
     clients: Vec<PersistentClient<'a>>,
-    last_active: Option<&'a str>,
 }
 
 impl<'a> MultiHostClient<'a> {
@@ -19,16 +18,13 @@ impl<'a> MultiHostClient<'a> {
             .map(|&host| PersistentClient::new(host, retry_interval))
             .collect();
 
-        Self {
-            clients: hosts,
-            last_active: None,
-        }
+        Self { clients: hosts }
     }
 
     /// Initialises each of the clients.
     pub fn init(&self) {
         for client in &self.clients {
-            client.init()
+            client.init();
         }
     }
 
@@ -38,8 +34,7 @@ impl<'a> MultiHostClient<'a> {
         let waits = self
             .clients
             .iter()
-            .map(|client| Box::pin(client.wait_for_client()))
-            .collect::<Vec<_>>();
+            .map(|client| Box::pin(client.wait_for_client()));
         futures::future::select_all(waits).await.0
     }
 
@@ -112,6 +107,11 @@ impl<'a> MultiHostClient<'a> {
             Ok(None) => Err(Error::NoHostConnectedError),
             Err(err) => Err(Error::CommandError(err)),
         }
+    }
+
+    pub async fn recv(&mut self) -> Option<ConnectionEvent> {
+        let waits = self.clients.iter().map(|client| Box::pin(client.recv()));
+        futures::future::select_all(waits).await.0
     }
 
     /// Runs the `status` command on the MPD server.
