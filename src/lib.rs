@@ -5,3 +5,5 @@ mod socket;
 
 pub use multi_host_client::MultiHostClient;
 pub use persistent_client::PersistentClient;
+
+pub use mpd_client;
