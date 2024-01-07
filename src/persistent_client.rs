@@ -1,15 +1,16 @@
 use crate::socket::try_get_connection;
 use mpd_client::client::{CommandError, ConnectionEvent};
+use mpd_client::commands::Command;
 use mpd_client::responses::{SongInQueue, Status};
 use mpd_client::{commands, Client};
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::spawn;
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 #[derive(Debug, Clone)]
 enum State {
@@ -17,9 +18,7 @@ enum State {
     Connected(Arc<Client>),
 }
 
-type AsyncReceiver<T> = Arc<AsyncMutex<UnboundedReceiver<T>>>;
-
-type AsyncChannel<T> = (UnboundedSender<T>, AsyncReceiver<T>);
+type Channel<T> = (broadcast::Sender<T>, broadcast::Receiver<T>);
 
 /// MPD client which automatically attempts to reconnect
 /// if the connection cannot be established or is lost.
@@ -30,24 +29,21 @@ pub struct PersistentClient {
     host: String,
     retry_interval: Duration,
     state: Arc<Mutex<State>>,
-    channel: AsyncChannel<ConnectionEvent>,
-    connection_channel: AsyncChannel<Arc<Client>>,
+    channel: Channel<Arc<ConnectionEvent>>,
+    connection_channel: Channel<Arc<Client>>,
 }
 
-        let channel = mpsc::unbounded_channel();
-        let connection_channel = mpsc::unbounded_channel();
 impl PersistentClient {
     pub fn new(host: String, retry_interval: Duration) -> Self {
+        let channel = broadcast::channel(32);
+        let connection_channel = broadcast::channel(8);
 
         Self {
             host,
             retry_interval,
             state: Arc::new(Mutex::new(State::Disconnected)),
-            channel: (channel.0, Arc::new(AsyncMutex::new(channel.1))),
-            connection_channel: (
-                connection_channel.0,
-                Arc::new(AsyncMutex::new(connection_channel.1)),
-            ),
+            channel,
+            connection_channel,
         }
     }
 
@@ -87,7 +83,10 @@ impl PersistentClient {
                                 break;
                             }
 
-                            tx.send(event).expect("Failed to send event");
+                            debug!("Sending event: {event:?}");
+
+                            // Wrap in `Arc` because `ConnectionEvent` isn't `Clone`.
+                            tx.send(Arc::new(event)).expect("Failed to send event");
                         }
                     }
                     Err(err) => {
@@ -125,9 +124,7 @@ impl PersistentClient {
             }
         }
 
-        let rx = self.connection_channel.1.clone();
-        let mut rx = rx.lock().await;
-
+        let mut rx = self.connection_channel.0.subscribe();
         rx.recv().await.unwrap()
     }
 
@@ -142,9 +139,9 @@ impl PersistentClient {
     }
 
     /// Receives an event from the MPD server.
-    pub async fn recv(&self) -> Option<ConnectionEvent> {
-        let rx = &self.channel.1;
-        rx.lock().await.recv().await
+    pub async fn recv(&self) -> Result<Arc<ConnectionEvent>, RecvError> {
+        let mut rx = self.channel.0.subscribe();
+        rx.recv().await
     }
 
     /// Runs the `status` command on the MPD server.

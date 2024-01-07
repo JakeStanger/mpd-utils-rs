@@ -6,6 +6,7 @@ use mpd_client::Client;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
 
 pub struct MultiHostClient {
     clients: Vec<PersistentClient>,
@@ -109,7 +110,7 @@ impl MultiHostClient {
         }
     }
 
-    pub async fn recv(&mut self) -> Option<ConnectionEvent> {
+    pub async fn recv(&mut self) -> std::result::Result<Arc<ConnectionEvent>, RecvError> {
         let waits = self.clients.iter().map(|client| Box::pin(client.recv()));
         futures::future::select_all(waits).await.0
     }
@@ -140,8 +141,10 @@ mod tests {
 
     #[tokio::test]
     async fn test() {
-        let client =
-            MultiHostClient::new(vec!["localhost:6600".into_string(), "chloe:6600".into_string()], Duration::from_secs(5));
+        let client = MultiHostClient::new(
+            vec!["localhost:6600".into_string(), "chloe:6600".into_string()],
+            Duration::from_secs(5),
+        );
 
         client.init();
         client.wait_for_all_clients().await;
