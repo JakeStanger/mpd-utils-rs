@@ -143,6 +143,7 @@ impl PersistentClient {
         let mut rx = self.channel.0.subscribe();
         rx.recv().await
     }
+
     /// Creates a new receiver to be able to receive events
     /// outside of the context of `&self`.
     ///
@@ -151,16 +152,26 @@ impl PersistentClient {
         self.channel.0.subscribe()
     }
 
-    /// Runs the `status` command on the MPD server.
-    pub async fn status(&self) -> Result<Status, CommandError> {
-        self.with_client(|client| async move { client.command(commands::Status).await })
+    /// Runs the provided command on the MPD server.
+    ///
+    /// Waits for a valid connection and response before the future is completed.
+    pub async fn command<C: Command>(&self, cmd: C) -> Result<C::Response, CommandError> {
+        self.with_client(|client| async move { client.command(cmd).await })
             .await
     }
 
+    /// Runs the `status` command on the MPD server.
+    ///
+    /// Waits for a valid connection and response before the future is completed.
+    pub async fn status(&self) -> Result<Status, CommandError> {
+        self.command(commands::Status).await
+    }
+
     /// Runs the `currentsong` command on the MPD server.
+    ///
+    /// Waits for a valid connection and response before the future is completed.
     pub async fn current_song(&self) -> Result<Option<SongInQueue>, CommandError> {
-        self.with_client(|client| async move { client.command(commands::CurrentSong).await })
-            .await
+        self.command(commands::CurrentSong).await
     }
 }
 
