@@ -143,6 +143,13 @@ impl PersistentClient {
         let mut rx = self.channel.0.subscribe();
         rx.recv().await
     }
+    /// Creates a new receiver to be able to receive events
+    /// outside of the context of `&self`.
+    ///
+    /// When you have access to the client instance, prefer` recv()` instead.
+    pub fn subscribe(&self) -> broadcast::Receiver<Arc<ConnectionEvent>> {
+        self.channel.0.subscribe()
+    }
 
     /// Runs the `status` command on the MPD server.
     pub async fn status(&self) -> Result<Status, CommandError> {
