@@ -26,18 +26,18 @@ type AsyncChannel<T> = (UnboundedSender<T>, AsyncReceiver<T>);
 ///
 /// Commands sent to a disconnected client are queued.
 #[derive(Debug)]
-pub struct PersistentClient<'a> {
-    host: &'a str,
+pub struct PersistentClient {
+    host: String,
     retry_interval: Duration,
     state: Arc<Mutex<State>>,
     channel: AsyncChannel<ConnectionEvent>,
     connection_channel: AsyncChannel<Arc<Client>>,
 }
 
-impl<'a> PersistentClient<'a> {
-    pub fn new(host: &'a str, retry_interval: Duration) -> Self {
         let channel = mpsc::unbounded_channel();
         let connection_channel = mpsc::unbounded_channel();
+impl PersistentClient {
+    pub fn new(host: String, retry_interval: Duration) -> Self {
 
         Self {
             host,
@@ -54,7 +54,7 @@ impl<'a> PersistentClient<'a> {
     /// Attempts to connect to the MPD host
     /// and begins listening to server events.
     pub fn init(&self) {
-        let host = self.host.to_string();
+        let host = self.host.clone();
         let retry_interval = self.retry_interval;
         let state = self.state.clone();
         let tx = self.channel.0.clone();
@@ -103,7 +103,7 @@ impl<'a> PersistentClient<'a> {
 
     /// Gets the client host address or path
     pub fn host(&self) -> &str {
-        self.host
+        &self.host
     }
 
     /// Gets whether there is a valid connection to the server
@@ -162,9 +162,9 @@ impl<'a> PersistentClient<'a> {
 
 /// Creates a new client on the default localhost TCP address
 /// with a connection retry of 5 seconds.
-impl<'a> Default for PersistentClient<'a> {
+impl Default for PersistentClient {
     fn default() -> Self {
-        PersistentClient::new("localhost:6600", Duration::from_secs(5))
+        PersistentClient::new("localhost:6600".to_string(), Duration::from_secs(5))
     }
 }
 
