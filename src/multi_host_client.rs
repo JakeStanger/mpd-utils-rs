@@ -6,16 +6,17 @@ use mpd_client::Client;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast::error::RecvError;
 
-pub struct MultiHostClient<'a> {
-    clients: Vec<PersistentClient<'a>>,
+pub struct MultiHostClient {
+    clients: Vec<PersistentClient>,
 }
 
-impl<'a> MultiHostClient<'a> {
-    pub fn new(hosts: &'a [&'a str], retry_interval: Duration) -> Self {
+impl MultiHostClient {
+    pub fn new(hosts: Vec<String>, retry_interval: Duration) -> Self {
         let hosts = hosts
-            .iter()
-            .map(|&host| PersistentClient::new(host, retry_interval))
+            .into_iter()
+            .map(|host| PersistentClient::new(host, retry_interval))
             .collect();
 
         Self { clients: hosts }
@@ -109,7 +110,7 @@ impl<'a> MultiHostClient<'a> {
         }
     }
 
-    pub async fn recv(&mut self) -> Option<ConnectionEvent> {
+    pub async fn recv(&mut self) -> std::result::Result<Arc<ConnectionEvent>, RecvError> {
         let waits = self.clients.iter().map(|client| Box::pin(client.recv()));
         futures::future::select_all(waits).await.0
     }
@@ -140,8 +141,10 @@ mod tests {
 
     #[tokio::test]
     async fn test() {
-        let client =
-            MultiHostClient::new(&["localhost:6600", "chloe:6600"], Duration::from_secs(5));
+        let client = MultiHostClient::new(
+            vec!["localhost:6600".into_string(), "chloe:6600".into_string()],
+            Duration::from_secs(5),
+        );
 
         client.init();
         client.wait_for_all_clients().await;
