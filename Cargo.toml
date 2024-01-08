@@ -1,6 +1,6 @@
 [package]
 name = "mpd-utils"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Utilities for working with MPD servers, built on top of `mpd_client` and `tokio`"
 license = "MIT"
