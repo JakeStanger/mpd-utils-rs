@@ -35,7 +35,7 @@ pub struct PersistentClient {
 
 impl PersistentClient {
     pub fn new(host: String, retry_interval: Duration) -> Self {
-        let channel = broadcast::channel(32);
+        let channel = broadcast::channel(1024);
         let connection_channel = broadcast::channel(8);
 
         Self {
