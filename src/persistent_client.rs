@@ -4,7 +4,7 @@ use mpd_client::commands::Command;
 use mpd_client::responses::{SongInQueue, Status};
 use mpd_client::{commands, Client};
 use std::future::Future;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::spawn;
 use tokio::sync::broadcast;
@@ -28,20 +28,20 @@ type Channel<T> = (broadcast::Sender<T>, broadcast::Receiver<T>);
 pub struct PersistentClient {
     host: String,
     retry_interval: Duration,
-    state: Arc<Mutex<State>>,
+    state: Arc<RwLock<State>>,
     channel: Channel<Arc<ConnectionEvent>>,
     connection_channel: Channel<Arc<Client>>,
 }
 
 impl PersistentClient {
     pub fn new(host: String, retry_interval: Duration) -> Self {
-        let channel = broadcast::channel(32);
+        let channel = broadcast::channel(1024);
         let connection_channel = broadcast::channel(8);
 
         Self {
             host,
             retry_interval,
-            state: Arc::new(Mutex::new(State::Disconnected)),
+            state: Arc::new(RwLock::new(State::Disconnected)),
             channel,
             connection_channel,
         }
@@ -58,6 +58,7 @@ impl PersistentClient {
 
         spawn(async move {
             loop {
+                debug!("Attempting to connect to {host}");
                 let connection = try_get_connection(&host).await;
 
                 match connection {
@@ -67,7 +68,7 @@ impl PersistentClient {
                         let client = Arc::new(connection.0);
 
                         {
-                            *state.lock().expect("Failed to get lock on state") =
+                            *state.write().expect("Failed to get lock on state") =
                                 State::Connected(client.clone());
                             conn_tx.send(client).expect("Failed to send event");
                         }
@@ -77,7 +78,7 @@ impl PersistentClient {
                         while let Some(event) = events.next().await {
                             if let ConnectionEvent::ConnectionClosed(err) = event {
                                 error!("Lost connection to '{host}': {err:?}");
-                                *state.lock().expect("Failed to get lock on state") =
+                                *state.write().expect("Failed to get lock on state") =
                                     State::Disconnected;
 
                                 break;
@@ -91,7 +92,7 @@ impl PersistentClient {
                     }
                     Err(err) => {
                         error!("Failed to connect to '{host}': {err:?}");
-                        *state.lock().expect("Failed to get lock on state") = State::Disconnected;
+                        *state.write().expect("Failed to get lock on state") = State::Disconnected;
                     }
                 }
 
@@ -108,7 +109,7 @@ impl PersistentClient {
     /// Gets whether there is a valid connection to the server
     pub fn is_connected(&self) -> bool {
         matches!(
-            *self.state.lock().expect("Failed to get lock on state"),
+            *self.state.read().expect("Failed to get lock on state"),
             State::Connected(_)
         )
     }
@@ -117,7 +118,7 @@ impl PersistentClient {
     /// If already connected, resolves immediately.
     pub async fn wait_for_client(&self) -> Arc<Client> {
         {
-            let state = self.state.lock().expect("Failed to get lock on state");
+            let state = self.state.read().expect("Failed to get lock on state");
 
             if let State::Connected(client) = &*state {
                 return client.clone();
@@ -139,13 +140,13 @@ impl PersistentClient {
     }
 
     /// Receives an event from the MPD server.
-    pub async fn recv(&self) -> Result<Arc<ConnectionEvent>, RecvError> {
-        let mut rx = self.channel.0.subscribe();
+    pub async fn recv(&mut self) -> Result<Arc<ConnectionEvent>, RecvError> {
+        let rx = &mut self.channel.1;
         rx.recv().await
     }
 
     /// Creates a new receiver to be able to receive events
-    /// outside of the context of `&self`.
+    /// outside the context of `&self`.
     ///
     /// When you have access to the client instance, prefer` recv()` instead.
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<ConnectionEvent>> {
