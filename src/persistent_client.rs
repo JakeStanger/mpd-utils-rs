@@ -58,6 +58,7 @@ impl PersistentClient {
 
         spawn(async move {
             loop {
+                debug!("Attempting to connect to {host}");
                 let connection = try_get_connection(&host).await;
 
                 match connection {
@@ -145,7 +146,7 @@ impl PersistentClient {
     }
 
     /// Creates a new receiver to be able to receive events
-    /// outside of the context of `&self`.
+    /// outside the context of `&self`.
     ///
     /// When you have access to the client instance, prefer` recv()` instead.
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<ConnectionEvent>> {
