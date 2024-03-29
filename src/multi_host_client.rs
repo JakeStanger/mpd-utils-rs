@@ -110,8 +110,12 @@ impl MultiHostClient {
         }
     }
 
+    /// Receives on all clients, returning an event from the first one to respond.
     pub async fn recv(&mut self) -> std::result::Result<Arc<ConnectionEvent>, RecvError> {
-        let waits = self.clients.iter().map(|client| Box::pin(client.recv()));
+        let waits = self
+            .clients
+            .iter_mut()
+            .map(|client| Box::pin(client.recv()));
         futures::future::select_all(waits).await.0
     }
 

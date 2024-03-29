@@ -139,8 +139,8 @@ impl PersistentClient {
     }
 
     /// Receives an event from the MPD server.
-    pub async fn recv(&self) -> Result<Arc<ConnectionEvent>, RecvError> {
-        let mut rx = self.channel.0.subscribe();
+    pub async fn recv(&mut self) -> Result<Arc<ConnectionEvent>, RecvError> {
+        let rx = &mut self.channel.1;
         rx.recv().await
     }
 
