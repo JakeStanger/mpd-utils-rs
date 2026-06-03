@@ -1,6 +1,6 @@
+use mpd_client::Client;
 use mpd_client::client::Connection;
 use mpd_client::protocol::MpdProtocolError;
-use mpd_client::Client;
 use std::os::unix::fs::FileTypeExt;
 use std::path::PathBuf;
 use tokio::net::{TcpStream, UnixStream};
@@ -21,7 +21,7 @@ fn is_unix_socket(host: &str) -> bool {
     path.exists()
         && path
             .metadata()
-            .map_or(false, |metadata| metadata.file_type().is_socket())
+            .is_ok_and(|metadata| metadata.file_type().is_socket())
 }
 
 async fn connect_unix(host: &str) -> Result<Connection, MpdProtocolError> {

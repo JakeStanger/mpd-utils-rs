@@ -1,8 +1,8 @@
 use crate::error::{Error, Result};
 use crate::persistent_client::PersistentClient;
+use mpd_client::Client;
 use mpd_client::client::{CommandError, ConnectionEvent};
 use mpd_client::responses::{PlayState, SongInQueue, Status};
-use mpd_client::Client;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -146,7 +146,7 @@ mod tests {
     #[tokio::test]
     async fn test() {
         let client = MultiHostClient::new(
-            vec!["localhost:6600".into_string(), "chloe:6600".into_string()],
+            vec!["localhost:6600".to_string(), "chloe:6600".to_string()],
             Duration::from_secs(5),
         );
 

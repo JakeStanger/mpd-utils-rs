@@ -2,7 +2,7 @@ use crate::socket::try_get_connection;
 use mpd_client::client::{CommandError, ConnectionEvent};
 use mpd_client::commands::Command;
 use mpd_client::responses::{SongInQueue, Status};
-use mpd_client::{commands, Client};
+use mpd_client::{Client, commands};
 use std::future::Future;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
