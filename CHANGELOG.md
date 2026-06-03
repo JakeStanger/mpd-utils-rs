@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.2] - 2026-06-03
+### :memo: Documentation Changes
+- [`1a87ee9`](https://github.com/JakeStanger/mpd-utils-rs/commit/1a87ee9672995d9f3353cd433c1eb5f918185161) - update CHANGELOG.md for v0.2.1 [skip ci] *(commit by [@JakeStanger](https://github.com/JakeStanger))*
+
+
 ## [v0.2.1] - 2024-03-29
 ### :bug: Bug Fixes
 - [`c4348a4`](https://github.com/JakeStanger/mpd-utils-rs/commit/c4348a4d7c3653b478e5be7fd3fe347ea0961f39) - **persistent client**: using new receiver for every recv call *(commit by [@JakeStanger](https://github.com/JakeStanger))*
@@ -38,3 +43,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [v0.2.0]: https://github.com/JakeStanger/mpd-utils-rs/compare/v0.1.0...v0.2.0
 [v0.2.1]: https://github.com/JakeStanger/mpd-utils-rs/compare/v0.2.0...v0.2.1
+[v0.2.2]: https://github.com/JakeStanger/mpd-utils-rs/compare/v0.2.1...v0.2.2
